@@ -19,12 +19,22 @@
   body { display: flex; align-items: center; justify-content: center; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
   #stage { position: relative; }
   canvas { display: block; background: #000; border-radius: 6px; box-shadow: 0 8px 40px rgba(0,0,0,.5); }
+  /* タッチ操作: 左半分はどこを触れてもジョイスティック、右半分はどこをタップしてもジャンプ */
   #touch { position: fixed; inset: 0; pointer-events: none; display: none; }
   #touch.on { display: block; }
-  .btn { position: absolute; width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.45); color: #fff; font-size: 22px; font-weight: 700; display: flex; align-items: center; justify-content: center; pointer-events: auto; bottom: 24px; }
-  .btn:active, .btn.down { background: rgba(255,255,255,.45); }
-  #bL { left: 20px; } #bR { left: 100px; } #bD { left: 60px; bottom: 96px; }
-  #bA { right: 20px; } #bB { right: 100px; }
+  .zone { position: absolute; top: 0; bottom: 0; pointer-events: auto; touch-action: none; }
+  #zoneL { left: 0; width: 45%; }
+  #zoneR { left: 45%; right: 0; }
+  #stick { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.35); display: none; pointer-events: none; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255,255,255,.55); box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+  #stick.on { display: block; }
+  .btn { position: absolute; border-radius: 50%; color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; pointer-events: auto; touch-action: none; user-select: none; }
+  #bA { right: 24px; bottom: 28px; width: 92px; height: 92px; font-size: 26px; background: rgba(255,255,255,.16); border: 2px solid rgba(255,255,255,.4); pointer-events: none; }
+  #bB { right: 132px; bottom: 60px; width: 66px; height: 66px; font-size: 20px; background: rgba(255,170,60,.28); border: 2px solid rgba(255,200,120,.6); }
+  .btn.down, #bA.down { background: rgba(255,255,255,.5); }
+  #bB.down { background: rgba(255,170,60,.7); }
+  #touchHint { position: absolute; left: 0; right: 0; top: 10px; text-align: center; color: rgba(255,255,255,.85); font-size: 13px; text-shadow: 0 1px 3px rgba(0,0,0,.6); pointer-events: none; transition: opacity 1s; }
+  #touchHint.off { opacity: 0; }
   #hint { position: fixed; left: 0; right: 0; bottom: 6px; text-align: center; color: rgba(255,255,255,.5); font-size: 12px; pointer-events: none; }
   @media (pointer: coarse) { #hint { display: none; } }
 </style>
@@ -32,11 +42,9 @@
 <body>
 <div id="stage"><canvas id="game" width="400" height="240"></canvas></div>
 <div id="touch">
-  <div class="btn" id="bL" data-key="ArrowLeft">◀</div>
-  <div class="btn" id="bR" data-key="ArrowRight">▶</div>
-  <div class="btn" id="bD" data-key="ArrowDown">▼</div>
-  <div class="btn" id="bB" data-key="KeyX">B</div>
-  <div class="btn" id="bA" data-key="KeyZ">A</div>
+  <div class="zone" id="zoneL"><div id="stick"><div id="knob"></div></div></div>
+  <div class="zone" id="zoneR"><div class="btn" id="bB">B</div><div class="btn" id="bA">A</div></div>
+  <div id="touchHint">ひだり半分: 指をおいて うごかす　　みぎ半分: どこでも タップで ジャンプ　　B: ダッシュ・アタック</div>
 </div>
 <div id="hint">← → 移動　Z / Space ジャンプ　X ダッシュ・アタック　↓ しゃがむ　Enter 決定</div>
 <script type="module" src="./src/main.js"></script>

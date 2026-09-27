@@ -176,4 +176,4 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
-window.__hyperwonder = { get screen() { return screen; }, get game() { return game; }, startLevel, LEVELS };
+window.__hyperwonder = { get screen() { return screen; }, get game() { return game; }, input, startLevel, LEVELS };
