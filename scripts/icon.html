@@ -4,12 +4,11 @@
 <style>body{margin:0;background:#000}canvas{display:block}</style>
 <canvas id="c" width="512" height="512"></canvas>
 <script type="module">
-import { getSprites } from '../src/sprites.js';
-const sp = getSprites();
+import * as A from '../src/art.js';
 const c = document.getElementById('c'), ctx = c.getContext('2d');
 // maskable=true なら角丸なし・全面塗り（OS が円や角丸にくり抜く）。中央 80% に主要要素を収める
 window.renderIcon = (size, maskable) => {
-  c.width = size; c.height = size; ctx.imageSmoothingEnabled = false;
+  c.width = size; c.height = size; ctx.imageSmoothingEnabled = true;
   const S = size / 512;
   ctx.save();
   if (!maskable) { ctx.beginPath(); ctx.roundRect(0, 0, size, size, size * .2); ctx.clip(); }
@@ -32,9 +31,9 @@ window.renderIcon = (size, maskable) => {
   ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(fx, fy, 26 * S, 0, 7); ctx.fill();
   ctx.fillStyle = '#1b1b2f'; ctx.beginPath(); ctx.arc(fx - 9 * S, fy - 3 * S, 4 * S, 0, 7); ctx.arc(fx + 9 * S, fy - 3 * S, 4 * S, 0, 7); ctx.fill();
   ctx.strokeStyle = '#1b1b2f'; ctx.lineWidth = 3 * S; ctx.beginPath(); ctx.arc(fx, fy + 6 * S, 9 * S, .2, Math.PI - .2); ctx.stroke();
-  // 主人公（大きい形態）を 16x24 → 拡大
-  const hero = sp.hero.big.idle, k = 13 * S;
-  ctx.drawImage(hero, 120 * S, 410 * S - hero.height * k, hero.width * k, hero.height * k);
+  // 主人公（大きい形態）をベクターで拡大描画
+  A.shadow(ctx, 190 * S, 412 * S, 70 * S, .35);
+  ctx.save(); ctx.translate(190 * S, 410 * S); ctx.scale(12.5 * S, 12.5 * S); A.drawHero(ctx, { form: 'big', pose: 'idle', phase: 0, t: 0 }); ctx.restore();
   ctx.restore();
   return c.toDataURL('image/png');
 };

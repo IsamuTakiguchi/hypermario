@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   test:
-    name: テスト（コースデータ・スプライト検証）
+    name: テスト（コースデータ・配信物の検証）
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

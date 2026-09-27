@@ -1,14 +1,14 @@
 // ゲーム本体：1コース分の状態、物理、敵・アイテム、ワンダー効果、描画
 import { TILE as T, ROWS, SOLID, parseLevel } from './levels.js';
-import { getSprites } from './sprites.js';
+import * as A from './art.js';
 
 export const W = 400, H = 240;
 
 const THEMES = {
-  grass: { sky: ['#5fb8ff', '#bfe9ff'], hill: '#57b84a', hill2: '#3d8f38', ground: '#b9743a', groundDark: '#8a5228', top: '#5cbf4a', cloud: '#ffffff' },
-  sky: { sky: ['#4f9cff', '#dff3ff'], hill: '#cfe8ff', hill2: '#a9d1f7', ground: '#c99a5a', groundDark: '#9a7040', top: '#7bd66b', cloud: '#ffffff' },
-  cave: { sky: ['#14142a', '#2a2a4a'], hill: '#2c2c4a', hill2: '#22223a', ground: '#5a4a6a', groundDark: '#3c3048', top: '#8a7aa0', cloud: '#3a3a5a' },
-  sunset: { sky: ['#ff7b54', '#ffd27a'], hill: '#c95d8a', hill2: '#7a3b6e', ground: '#a06a3a', groundDark: '#6e4626', top: '#e6b04a', cloud: '#ffe6d5' },
+  grass: { sky: ['#3d8ff2', '#8ed0ff', '#dff4ff'], far: ['#9fd0f5', '#79b6e6'], hill: ['#7ad36a', '#3f9a3a'], hill2: ['#a8e69a', '#5cb84c'], bush: ['#8be07a', '#3f9a3a'], ground: '#c98a4d', groundDark: '#8a5228', top: '#7fd65f', topLight: '#b6f29c', topDark: '#3f9a3a', cloud: '#ffffff', sun: '#fff7c2' },
+  sky: { sky: ['#2f7fe6', '#7cc4ff', '#eaf7ff'], far: ['#e3f3ff', '#b5dcf8'], hill: ['#dff1ff', '#9fcbef'], hill2: ['#ffffff', '#c9e6fb'], bush: ['#a5e6ff', '#5fb8e8'], ground: '#d1a26a', groundDark: '#9a7040', top: '#8fdc7a', topLight: '#c9f5b5', topDark: '#4aa843', cloud: '#ffffff', sun: '#fff7c2' },
+  cave: { sky: ['#0d0d1f', '#1f1f3d', '#2f2a52'], far: ['#2a2a4a', '#1c1c34'], hill: ['#3b3560', '#241f3f'], hill2: ['#4a4472', '#2d2850'], bush: ['#4f4a7a', '#2d2850'], ground: '#6e5c86', groundDark: '#3c3048', top: '#9c8ab8', topLight: '#c6b6e0', topDark: '#5c4c7a', cloud: '#3a3a5a', sun: '#fff7c2' },
+  sunset: { sky: ['#ff6f4d', '#ffab5e', '#ffe29a'], far: ['#f0a0b8', '#c86f95'], hill: ['#d97aa6', '#8c3f74'], hill2: ['#f2a0c4', '#b05a8e'], bush: ['#e88fb4', '#8c3f74'], ground: '#b57a45', groundDark: '#6e4626', top: '#f0c05a', topLight: '#ffe6a0', topDark: '#c58a2a', cloud: '#ffe6d5', sun: '#fff3b0' },
 };
 const FORM_SIZE = { small: [10, 14], big: [10, 22], trunk: [14, 22], bubble: [10, 22] };
 const FORM_NAME = { big: 'おおきくなった！', trunk: 'ゾウに へんしん！', bubble: 'あわの ちから！' };
@@ -22,8 +22,8 @@ export class Game {
     this.lives = opts.lives ?? 3;
     this.coins = opts.coins ?? 0;
     this.onEvent = opts.onEvent ?? (() => {});
-    this.sp = getSprites();
-    this.dark = document.createElement('canvas'); this.dark.width = W; this.dark.height = H;
+    this.res = 1; // 実解像度の倍率（main.js が設定）
+    this.dark = document.createElement('canvas');
     this.stars = Array.from({ length: 60 }, (_, i) => ({ x: (i * 97) % W, y: (i * 53) % (H - 60), s: 1 + (i % 3) }));
   }
 
@@ -419,24 +419,25 @@ export class Game {
   // ---------- 描画 ----------
   draw() {
     const ctx = this.ctx, th = this.theme, wt = this.wonderType();
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = true;
+    ctx.lineJoin = 'round';
     this.drawBackground(ctx, th, wt);
-    const cam = Math.floor(this.camX);
+    const cam = this.camX;
     ctx.save(); ctx.translate(-cam, 0);
     this.drawTiles(ctx, cam, wt);
     for (const tk of this.level.talkers) this.drawTalker(ctx, tk);
-    for (const it of this.items) this.drawItem(ctx, it);
-    for (const c of this.rain) ctx.drawImage(this.sp.coin, 2, 2, 12, 12, c.x, c.y + this.wob(c.x), 12, 12);
-    for (const e of this.enemies) this.drawEnemy(ctx, e);
     this.drawGoal(ctx);
+    for (const it of this.items) this.drawItem(ctx, it);
+    for (const c of this.rain) A.drawCoin(ctx, c.x + 6, c.y + 6 + this.wob(c.x), this.frame / 6 + c.x, 5);
+    for (const e of this.enemies) this.drawEnemy(ctx, e);
     this.drawPlayer(ctx);
-    for (const b of this.bubbles) this.drawBubble(ctx, b);
+    for (const b of this.bubbles) A.drawBubble(ctx, b.x + 6, b.y + 6, 6 + Math.sin(b.t / 4) * .4);
     for (const pt of this.particles) {
       const oy = this.wob(pt.x);
-      if (pt.coin) ctx.drawImage(this.sp.coin, 4, 2, 8, 12, pt.x, pt.y + oy, 8, 12);
-      else { ctx.fillStyle = pt.color; ctx.fillRect(pt.x, pt.y + oy, pt.size, pt.size); }
+      if (pt.coin) A.drawCoin(ctx, pt.x + 4, pt.y + 6 + oy, this.frame / 4, 5);
+      else { ctx.globalAlpha = Math.min(1, pt.life / 12); A.ell(ctx, pt.x, pt.y + oy, pt.size * .7, pt.size * .7, pt.color); ctx.globalAlpha = 1; }
     }
-    ctx.font = 'bold 8px sans-serif';
+    ctx.font = 'bold 8px system-ui, sans-serif';
     for (const pp of this.popups) this.text(ctx, pp.text, pp.x, pp.y, pp.color, 'left');
     if (this.talk) this.drawTalkBubble(ctx, this.talk.tk);
     ctx.restore();
@@ -447,41 +448,55 @@ export class Game {
   wob(x) { return this.wonderType() === 'wobble' ? Math.sin(this.wonder.t / 9 + x / T * .45) * 4 : 0; }
   text(ctx, s, x, y, color = '#fff', align = 'left') {
     ctx.textAlign = align; ctx.textBaseline = 'top';
-    ctx.fillStyle = '#1b1b2f'; ctx.fillText(s, x + 1, y + 1);
+    ctx.fillStyle = 'rgba(20,10,40,.55)'; ctx.fillText(s, x + .8, y + 1);
     ctx.fillStyle = color; ctx.fillText(s, x, y);
+  }
+  // 足元の影：地面（または足場）まで下ろして描く
+  groundShadow(ctx, x, bottom, w, alpha = .3) {
+    let cy = Math.floor(bottom / T), cx = Math.floor(x / T), found = -1;
+    for (let k = 0; k < 8 && cy + k < ROWS; k++) if (this.solid(cx, cy + k) || this.semi(cx, cy + k)) { found = (cy + k) * T; break; }
+    if (found < 0) return;
+    const dist = Math.max(0, found - bottom), sc = Math.max(.35, 1 - dist / 90);
+    A.shadow(ctx, x, found + this.wob(x) + .5, w * sc, alpha * sc);
   }
 
   drawBackground(ctx, th, wt) {
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, wt === 'lowgrav' ? '#0d0d33' : th.sky[0]); g.addColorStop(1, wt === 'lowgrav' ? '#3a3a7a' : th.sky[1]);
+    const sky = wt === 'lowgrav' ? ['#0a0a2e', '#28286e', '#5a5aa8'] : th.sky;
+    g.addColorStop(0, sky[0]); g.addColorStop(.6, sky[1]); g.addColorStop(1, sky[2]);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    if (wt === 'wobble') { ctx.fillStyle = `hsla(${(this.wonder.t * 2) % 360},80%,60%,.25)`; ctx.fillRect(0, 0, W, H); }
+    if (wt === 'wobble') { ctx.fillStyle = `hsla(${(this.wonder.t * 2) % 360},80%,60%,.22)`; ctx.fillRect(0, 0, W, H); }
     if (wt === 'lowgrav' || this.level.theme === 'cave') {
-      ctx.fillStyle = '#fff';
-      for (const s of this.stars) { const tw = (Math.sin(this.frame / 20 + s.x) + 1) / 2; ctx.globalAlpha = .3 + tw * .7; ctx.fillRect((s.x - this.camX * .05 + W * 10) % W, s.y, s.s > 2 ? 2 : 1, s.s > 2 ? 2 : 1); }
+      for (const s of this.stars) { const tw = (Math.sin(this.frame / 20 + s.x) + 1) / 2; ctx.globalAlpha = .3 + tw * .7; A.ell(ctx, ((s.x - this.camX * .05) % W + W) % W, s.y, s.s * .4, s.s * .4, '#fff'); }
       ctx.globalAlpha = 1;
     }
-    if (this.level.theme === 'sunset') { ctx.fillStyle = '#fff3b0'; ctx.beginPath(); ctx.arc(320 - this.camX * .02, 60, 26, 0, Math.PI * 2); ctx.fill(); }
-    // 雲
-    ctx.fillStyle = th.cloud;
-    for (let i = 0; i < 7; i++) {
-      const x = ((i * 173 + 40) - this.camX * .25) % (W + 120) + (this.level.width * T) % 7; const cx = ((x % (W + 120)) + W + 120) % (W + 120) - 60; const y = 22 + (i * 37) % 70;
-      ctx.beginPath(); ctx.arc(cx, y, 10, 0, 7); ctx.arc(cx + 12, y - 5, 12, 0, 7); ctx.arc(cx + 26, y, 10, 0, 7); ctx.fill();
-      ctx.fillRect(cx - 6, y, 40, 8);
+    if (this.level.theme !== 'cave') { // 太陽
+      const sx = 330 - this.camX * .02, sy = this.level.theme === 'sunset' ? 120 : 48;
+      A.glow(ctx, sx, sy, this.level.theme === 'sunset' ? 90 : 60, 'rgba(255,240,180,.45)');
+      A.ell(ctx, sx, sy, this.level.theme === 'sunset' ? 26 : 16, this.level.theme === 'sunset' ? 26 : 16, th.sun);
     }
-    // 丘
-    for (const [col, par, hh] of [[th.hill2, .4, 70], [th.hill, .6, 45]]) {
-      ctx.fillStyle = col;
-      for (let i = -1; i < 6; i++) {
-        const bx = ((i * 140 - this.camX * par) % 840 + 840) % 840 - 140;
-        ctx.beginPath(); ctx.moveTo(bx, H); ctx.quadraticCurveTo(bx + 70, H - hh * 2, bx + 140, H); ctx.fill();
+    // 遠景の山
+    for (let i = -1; i < 5; i++) { const bx = ((i * 220 - this.camX * .15) % 1100 + 1100) % 1100 - 220; A.drawHill(ctx, bx, H - 40, 300, 120, th.far[0], th.far[1]); }
+    // 雲
+    for (let i = 0; i < 7; i++) {
+      const cx = (((i * 173 + 40) - this.camX * .25) % (W + 160) + W + 160) % (W + 160) - 80, y = 26 + (i * 37) % 70;
+      A.drawCloud(ctx, cx, y, .7 + (i % 3) * .2, th.cloud);
+    }
+    // 丘（中景・近景）
+    for (let i = -1; i < 6; i++) { const bx = ((i * 180 - this.camX * .4) % 900 + 900) % 900 - 180; A.drawHill(ctx, bx, H - 20, 220, 85, th.hill2[0], th.hill2[1]); }
+    for (let i = -1; i < 6; i++) { const bx = ((i * 150 + 60 - this.camX * .6) % 750 + 750) % 750 - 150; A.drawHill(ctx, bx, H - 12, 170, 55, th.hill[0], th.hill[1]); }
+    for (let i = 0; i < 8; i++) { const bx = ((i * 97 + 30 - this.camX * .8) % 800 + 800) % 800 - 100; A.drawBush(ctx, bx, H - 24, .9 + (i % 2) * .4, th.bush[0], th.bush[1]); }
+    if (this.level.theme === 'cave') { // つらら
+      for (let i = 0; i < 12; i++) {
+        const bx = ((i * 71 - this.camX * .5) % 500 + 500) % 500 - 50, len = 24 + (i % 3) * 10;
+        ctx.fillStyle = A.vgrad(ctx, 16, 16 + len, [[0, '#3a3560'], [1, '#14122a']]);
+        ctx.beginPath(); ctx.moveTo(bx, 16); ctx.quadraticCurveTo(bx + 8, 16 + len * .6, bx + 8, 16 + len); ctx.quadraticCurveTo(bx + 8, 16 + len * .6, bx + 16, 16); ctx.fill();
       }
     }
-    if (this.level.theme === 'cave') { ctx.fillStyle = '#101020'; for (let i = 0; i < 12; i++) { const bx = ((i * 71 - this.camX * .5) % 500 + 500) % 500 - 50; ctx.beginPath(); ctx.moveTo(bx, 16); ctx.lineTo(bx + 8, 16 + 24 + (i % 3) * 10); ctx.lineTo(bx + 16, 16); ctx.fill(); } }
   }
 
   drawTiles(ctx, cam, wt) {
-    const th = this.theme, sp = this.sp;
+    const th = this.theme;
     const cx0 = Math.max(0, Math.floor(cam / T) - 1), cx1 = Math.min(this.level.width - 1, Math.floor((cam + W) / T) + 1);
     const wobble = wt === 'wobble';
     for (let cx = cx0; cx <= cx1; cx++) {
@@ -490,182 +505,133 @@ export class Game {
       const ext = pc ? this.pipeExt(pc.idx) : 0;
       for (let cy = 0; cy < ROWS; cy++) {
         const c = this.tiles[cy][cx];
+        if (c === '.') continue;
         let x = cx * T, y = cy * T + oy;
         const bump = this.bumps.get(`${cx},${cy}`);
         if (bump !== undefined) y -= Math.sin(bump / 14 * Math.PI) * 5;
         switch (c) {
-          case '#': {
-            ctx.fillStyle = th.ground; ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = th.groundDark; ctx.fillRect(x + ((cx * 7 + cy * 3) % 10), y + 6 + (cx * 3 + cy) % 7, 3, 2); ctx.fillRect(x + 12 - (cx * 5) % 8, y + 12, 2, 2);
-            if (!SOLID.has(this.tile(cx, cy - 1))) { ctx.fillStyle = th.top; ctx.fillRect(x, y, T, 4); ctx.fillStyle = th.groundDark; ctx.fillRect(x, y + 4, T, 1); }
-            if (this.tile(cx - 1, cy) !== '#') { ctx.fillStyle = th.groundDark; ctx.fillRect(x, y, 1, T); }
-            if (this.tile(cx + 1, cy) !== '#') { ctx.fillStyle = th.groundDark; ctx.fillRect(x + T - 1, y, 1, T); }
-            break;
-          }
-          case '=': {
-            ctx.fillStyle = '#c9764a'; ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = '#7a3e22'; ctx.fillRect(x, y + 7, T, 1); ctx.fillRect(x, y + 15, T, 1); ctx.fillRect(x + 7, y, 1, 7); ctx.fillRect(x + 3, y + 8, 1, 7); ctx.fillRect(x + 11, y + 8, 1, 7);
-            ctx.fillStyle = '#e59a6e'; ctx.fillRect(x, y, T, 1);
-            break;
-          }
-          case '?': case 'P': {
-            ctx.fillStyle = '#f4a300'; ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = '#ffd54f'; ctx.fillRect(x + 1, y + 1, T - 2, T - 2);
-            ctx.fillStyle = '#7a3e22'; [[1, 1], [13, 1], [1, 13], [13, 13]].forEach(([dx, dy]) => ctx.fillRect(x + dx, y + dy, 2, 2));
-            ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-            ctx.fillStyle = '#7a3e22'; ctx.fillText('?', x + 8, y + 2);
-            if ((this.frame >> 3) % 4 === 0) { ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillRect(x + 3, y + 3, 3, 3); }
-            break;
-          }
-          case 'U': { ctx.fillStyle = '#8a6a4a'; ctx.fillRect(x, y, T, T); ctx.fillStyle = '#5d3a1a'; ctx.fillRect(x, y, T, 1); ctx.fillRect(x, y, 1, T); [[2, 2], [12, 2], [2, 12], [12, 12]].forEach(([dx, dy]) => ctx.fillRect(x + dx, y + dy, 2, 2)); break; }
-          case 'T': case '|': {
-            const isTop = c === 'T';
-            const leftHalf = this.tile(cx + 1, cy) === c && this.tile(cx - 1, cy) !== c;
-            const yy = isTop ? y - ext * T : y;
-            if (isTop && ext > 0) this.drawPipeBody(ctx, x, y - ext * T + T, ext * T, leftHalf);
-            this.drawPipeBody(ctx, x, yy, T, leftHalf, isTop);
-            if (isTop && wt === 'pipes') { // 目
-              const ex = leftHalf ? x + 9 : x + 3;
-              ctx.fillStyle = '#fff'; ctx.fillRect(ex, yy + 6, 5, 6); ctx.fillStyle = '#1b1b2f'; ctx.fillRect(ex + (leftHalf ? 2 : 1), yy + 8 + Math.round(Math.sin(this.wonder.t / 20) * 1), 2, 3);
+          case '#': A.drawGround(ctx, x, y, T, th, { up: this.tile(cx, cy - 1) === '#', left: this.tile(cx - 1, cy) === '#', right: this.tile(cx + 1, cy) === '#' }); break;
+          case '=': A.drawBrick(ctx, x, y, T); break;
+          case '?': case 'P': A.drawQBlock(ctx, x, y, T, this.frame + cx * 7, false); break;
+          case 'U': A.drawQBlock(ctx, x, y, T, 0, true); break;
+          case 'T': {
+            if (this.tile(cx - 1, cy) === 'T') break; // 2列ぶんをまとめて描く
+            let h = T; while (this.tile(cx, cy + h / T) === '|') h += T;
+            A.drawPipe(ctx, x, y - ext * T, T * 2, h + ext * T, true);
+            if (wt === 'pipes') { // 目
+              const yy = y - ext * T + 4;
+              for (const ex of [x + 9, x + 23]) { A.ell(ctx, ex, yy + 6, 2.6, 3.2, '#fff', 'rgba(0,40,0,.5)', .5); A.ell(ctx, ex + .6, yy + 6.5 + Math.sin(this.wonder.t / 20), 1.2, 1.7, '#1b1b2f'); }
             }
             break;
           }
-          case '-': { ctx.fillStyle = '#d7a86e'; ctx.fillRect(x, y, T, 5); ctx.fillStyle = '#8d5524'; ctx.fillRect(x, y + 4, T, 1); ctx.fillRect(x + 4, y + 1, 1, 3); ctx.fillRect(x + 11, y + 1, 1, 3); break; }
-          case '^': { ctx.fillStyle = '#cfd8dc'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(x + i * 5 + 1, y + T); ctx.lineTo(x + i * 5 + 3, y + 2); ctx.lineTo(x + i * 5 + 5, y + T); ctx.fill(); } ctx.fillStyle = '#607d8b'; ctx.fillRect(x, y + 14, T, 2); break; }
-          case 'x': {
-            if (!this.wonder.active) break;
-            const a = Math.min(1, this.wonder.t / 25);
-            ctx.globalAlpha = a; ctx.fillStyle = `hsl(${(this.wonder.t * 3 + cx * 20) % 360},85%,65%)`; ctx.fillRect(x, y, T, T);
-            ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillRect(x, y, T, 2); ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x, y + T - 2, T, 2); ctx.globalAlpha = 1;
-            break;
-          }
-          case 'c': { const f = (this.frame >> 3) % 4; if (f === 2) ctx.drawImage(sp.coinThin, x, y); else ctx.drawImage(sp.coin, x, y); break; }
-          case 'F': { const b = Math.sin(this.frame / 12 + cx) * 2; ctx.drawImage(sp.fcoin, x, y + b); if (wt === 'dark') this.glow(ctx, x + 8, y + 8 + b, 14, 'rgba(206,147,216,.4)'); break; }
-          case '*': this.drawWonderFlower(ctx, x, y); break;
-          case '@': if (this.wonder.active) { const b = Math.sin(this.frame / 10) * 3; this.glow(ctx, x + 8, y + 8 + b, 16, 'rgba(255,255,255,.35)'); ctx.drawImage(sp.seed, x, y + b); } break;
+          case '|': break;
+          case '-': A.drawPlank(ctx, x, y, T); break;
+          case '^': A.drawSpikes(ctx, x, y, T); break;
+          case 'x': if (this.wonder.active) A.drawWonderTile(ctx, x, y, T, this.wonder.t, cx, Math.min(1, this.wonder.t / 25)); break;
+          case 'c': A.drawCoin(ctx, x + 8, y + 8, this.frame / 9 + cx * .7); if (wt === 'dark') A.glow(ctx, x + 8, y + 8, 10, 'rgba(255,220,120,.35)'); break;
+          case 'F': A.drawFlowerCoin(ctx, x + 8, y + 8 + Math.sin(this.frame / 12 + cx) * 2, this.frame); break;
+          case '*': A.drawWonderFlower(ctx, x + 8, y + 7, this.frame); break;
+          case '@': if (this.wonder.active) A.drawSeed(ctx, x + 8, y + 8 + Math.sin(this.frame / 10) * 3, this.frame); break;
         }
       }
     }
   }
-  drawPipeBody(ctx, x, y, h, leftHalf, top = false) {
-    ctx.fillStyle = '#2e9e3e'; ctx.fillRect(x, y, T, h);
-    ctx.fillStyle = '#8fe08a'; ctx.fillRect(x + (leftHalf ? 2 : 9), y, 3, h);
-    ctx.fillStyle = '#1b5e20'; ctx.fillRect(x + (leftHalf ? 0 : T - 1), y, 1, h);
-    if (top) { ctx.fillStyle = '#2e9e3e'; ctx.fillRect(x + (leftHalf ? -1 : 0), y, T + 1, 8); ctx.fillStyle = '#1b5e20'; ctx.fillRect(x + (leftHalf ? -1 : 0), y + 7, T + 1, 1); ctx.fillRect(x + (leftHalf ? -1 : T), y, 1, 8); ctx.fillStyle = '#8fe08a'; ctx.fillRect(x + (leftHalf ? 1 : 8), y + 1, 4, 5); }
-  }
-  glow(ctx, x, y, r, color) { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, color); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); }
-  drawWonderFlower(ctx, x, y) {
-    const t = this.frame / 8;
-    ctx.fillStyle = '#43a047'; ctx.fillRect(x + 7, y + 8, 2, 8); ctx.fillRect(x + 4, y + 12, 3, 2); ctx.fillRect(x + 9, y + 11, 3, 2);
-    for (let i = 0; i < 6; i++) {
-      const a = t / 3 + i * Math.PI / 3; ctx.fillStyle = `hsl(${(i * 60 + this.frame * 3) % 360},90%,60%)`;
-      ctx.beginPath(); ctx.arc(x + 8 + Math.cos(a) * 4.5, y + 6 + Math.sin(a) * 4.5, 3, 0, 7); ctx.fill();
-    }
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + 8, y + 6, 2.5, 0, 7); ctx.fill();
-    this.glow(ctx, x + 8, y + 6, 14 + Math.sin(t) * 3, 'rgba(255,255,255,.35)');
-  }
-  drawTalker(ctx, tk) {
-    const x = tk.x * T, y = tk.y * T + this.wob(x);
-    ctx.drawImage(this.sp.talker, x, y + (this.talk?.tk === tk ? Math.sin(this.frame / 4) * 1.5 : 0));
-  }
+  drawTalker(ctx, tk) { A.drawTalker(ctx, tk.x * T + 8, tk.y * T + 7 + this.wob(tk.x * T), this.frame, this.talk?.tk === tk); }
   drawTalkBubble(ctx, tk) {
-    ctx.font = '9px sans-serif';
-    const txt = tk.text; const w = Math.min(ctx.measureText(txt).width + 12, 220);
+    ctx.font = '9px system-ui, sans-serif';
+    const txt = tk.text; const w = Math.min(ctx.measureText(txt).width + 14, 230);
     let x = tk.x * T + 8 - w / 2; x = Math.max(this.camX + 4, Math.min(this.camX + W - w - 4, x));
-    const y = tk.y * T - 26;
-    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1b1b2f'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.roundRect(x, y, w, 18, 5); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(tk.x * T + 5, y + 18); ctx.lineTo(tk.x * T + 11, y + 18); ctx.lineTo(tk.x * T + 8, y + 23); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#1b1b2f'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(txt, x + 6, y + 4, w - 12);
+    const y = tk.y * T - 28;
+    ctx.fillStyle = 'rgba(0,0,0,.15)'; ctx.beginPath(); ctx.roundRect(x + 1, y + 2, w, 19, 7); ctx.fill();
+    A.rr(ctx, x, y, w, 19, 7, '#fff', 'rgba(40,20,60,.35)', .8);
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(tk.x * T + 4, y + 18.5); ctx.lineTo(tk.x * T + 12, y + 18.5); ctx.lineTo(tk.x * T + 8, y + 24); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#2b2440'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(txt, x + 7, y + 4.5, w - 14);
   }
   drawItem(ctx, it) {
-    const img = it.kind === 'berry' ? this.sp.berry : it.kind === 'fruit' ? this.sp.fruit : this.sp.bflower;
     const y = it.y + this.wob(it.x);
-    if (it.rise > 0) { ctx.save(); ctx.beginPath(); ctx.rect(it.x - 2, 0, 20, it.blockY); ctx.clip(); }
-    ctx.drawImage(img, it.x - 1, y);
+    if (it.rise > 0) { ctx.save(); ctx.beginPath(); ctx.rect(it.x - 6, 0, 26, it.blockY); ctx.clip(); }
+    else this.groundShadow(ctx, it.x + 7, it.y + it.h, 7, .25);
+    if (it.kind === 'berry') A.drawBerry(ctx, it.x + 6, y + 7);
+    else if (it.kind === 'fruit') A.drawFruit(ctx, it.x + 7, y + 7);
+    else A.drawBubbleFlower(ctx, it.x + 7, y + 6, this.frame);
     if (it.rise > 0) ctx.restore();
   }
   drawEnemy(ctx, e) {
-    const set = e.kind === 'e' ? this.sp.walker : e.kind === 's' ? this.sp.spiky : this.sp.flyer;
-    let img = set[(e.t >> 3) % 2 ? 'b' : 'a'];
-    const y = e.y - 2 + this.wob(e.x);
-    ctx.save(); ctx.translate(e.x - 1 + 8, y + 8);
-    if (e.dead === 1) { img = set.flat ?? img; }
-    if (e.dead === 2) ctx.scale(1, -1);
+    const y = e.y + e.h + this.wob(e.x);
+    if (!e.dead && e.kind !== 'b') this.groundShadow(ctx, e.x + 7, e.y + e.h, 8);
+    if (e.kind === 'b') this.groundShadow(ctx, e.x + 7, e.y + e.h, 7, .2);
+    ctx.save(); ctx.translate(e.x + 7, y);
+    if (e.dead === 2) ctx.scale(1, -1), ctx.translate(0, -14);
     if (e.dir > 0) ctx.scale(-1, 1);
-    ctx.drawImage(img, -8, -8); ctx.restore();
-  }
-  drawBubble(ctx, b) {
-    const x = b.x + 6, y = b.y + 6;
-    ctx.strokeStyle = 'rgba(180,240,255,.9)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.stroke();
-    ctx.fillStyle = 'rgba(180,240,255,.25)'; ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillRect(x - 3, y - 4, 2, 2);
+    if (e.kind === 'e') A.drawWalker(ctx, e.t, e.dead);
+    else if (e.kind === 's') A.drawSpiky(ctx, e.t, e.dead);
+    else A.drawFlyer(ctx, e.t);
+    ctx.restore();
   }
   drawGoal(ctx) {
     const g = this.level.goal, x = g.x * T + 7, top = 3 * T, bottom = (g.y + 1) * T;
-    ctx.fillStyle = '#2e7d32'; ctx.fillRect(x - 5, bottom - 6, 12, 6);
-    ctx.fillStyle = '#e0e0e0'; ctx.fillRect(x, top, 2, bottom - top - 6);
-    ctx.fillStyle = '#ffd54f'; ctx.beginPath(); ctx.arc(x + 1, top - 3, 4, 0, 7); ctx.fill();
-    const fy = this.state === 'clear' ? Math.min(bottom - 30, top + 6 + this.stateT * 2) : top + 6;
-    ctx.fillStyle = '#e53935'; ctx.beginPath(); ctx.moveTo(x + 2, fy); ctx.lineTo(x + 18, fy + 7); ctx.lineTo(x + 2, fy + 14); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + 8, fy + 7, 2.5, 0, 7); ctx.fill();
+    const fy = this.state === 'clear' ? Math.min(bottom - 30, top + 6 + this.stateT * 2) : top + 6 + Math.sin(this.frame / 30) * 1.5;
+    A.drawGoal(ctx, x, top, bottom, fy);
   }
   drawPlayer(ctx) {
     const p = this.p;
     if (p.inv > 0 && (p.inv >> 2) % 2 === 0 && this.state === 'play') return;
-    const set = this.sp.hero[p.form];
-    let frame = 'idle';
-    if (this.state === 'dead') frame = 'jump';
-    else if (p.crouch && set.crouch) frame = 'crouch';
-    else if (p.attack > 0 && set.attack) frame = 'attack';
-    else if (!p.ground) frame = 'jump';
-    else if (Math.abs(p.vx) > .2) frame = (Math.floor(p.anim) % 2) ? 'walk' : 'idle';
-    const img = set[frame];
-    const x = Math.round(p.x + p.w / 2 - 8), y = Math.round(p.y + p.h - img.height + (p.crouch ? (img.height - 14 - 8) : 0)) + this.wob(p.x);
-    ctx.save(); ctx.translate(x + 8, y);
+    let pose = 'idle';
+    if (this.state === 'dead') pose = 'jump';
+    else if (p.crouch) pose = 'crouch';
+    else if (p.attack > 0 && p.form === 'trunk') pose = 'attack';
+    else if (!p.ground) pose = 'jump';
+    else if (Math.abs(p.vx) > .2) pose = 'walk';
+    if (this.state !== 'dead') this.groundShadow(ctx, p.x + p.w / 2, p.y + p.h, p.form === 'small' ? 6 : 8);
+    ctx.save(); ctx.translate(p.x + p.w / 2, p.y + p.h + this.wob(p.x));
     if (p.dir < 0) ctx.scale(-1, 1);
-    if (this.state === 'dead') ctx.scale(1, -1), ctx.translate(0, -img.height);
-    ctx.drawImage(img, -8, 0);
-    if (p.glide) { ctx.fillStyle = '#ff7043'; ctx.beginPath(); ctx.arc(0, -6, 10, Math.PI, 0); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.moveTo(-9, -6); ctx.lineTo(-3, 4); ctx.moveTo(9, -6); ctx.lineTo(3, 4); ctx.stroke(); }
+    if (this.state === 'dead') ctx.rotate(Math.min(Math.PI, this.stateT / 25));
+    A.drawHero(ctx, { form: p.form, pose, phase: p.anim * 2.2, t: this.frame, glide: p.glide });
     ctx.restore();
-    if (p.wall !== 0 && this.badge === 'wall' && !p.ground) { ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(p.x + (p.wall > 0 ? p.w : -2), p.y + p.h - 4 + (this.frame % 6), 2, 2); }
+    if (p.wall !== 0 && this.badge === 'wall' && !p.ground) A.ell(ctx, p.x + (p.wall > 0 ? p.w : 0), p.y + p.h - 4 + (this.frame % 6), 1.2, 1.2, 'rgba(255,255,255,.7)');
   }
   drawDark(ctx, cam) {
+    const res = this.res;
+    if (this.dark.width !== Math.round(W * res)) { this.dark.width = Math.round(W * res); this.dark.height = Math.round(H * res); }
     const d = this.dark.getContext('2d');
-    d.globalCompositeOperation = 'source-over'; d.fillStyle = 'rgba(2,2,12,.94)'; d.fillRect(0, 0, W, H);
+    d.setTransform(res, 0, 0, res, 0, 0);
+    d.globalCompositeOperation = 'source-over'; d.fillStyle = 'rgba(2,2,14,.94)'; d.fillRect(0, 0, W, H);
     d.globalCompositeOperation = 'destination-out';
     const hole = (x, y, r, a = 1) => { const g = d.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(.6, `rgba(0,0,0,${a * .8})`); g.addColorStop(1, 'rgba(0,0,0,0)'); d.fillStyle = g; d.fillRect(x - r, y - r, r * 2, r * 2); };
-    const p = this.p; hole(p.x + p.w / 2 - cam, p.y + p.h / 2, 58 + Math.sin(this.frame / 10) * 4);
+    const p = this.p; hole(p.x + p.w / 2 - cam, p.y + p.h / 2, 60 + Math.sin(this.frame / 10) * 4);
     const cx0 = Math.floor(cam / T), cx1 = cx0 + W / T + 1;
     for (let cy = 0; cy < ROWS; cy++) for (let cx = cx0; cx <= cx1; cx++) { const c = this.tile(cx, cy); if (c === 'c' || c === 'F' || c === '@' || c === '?' || c === 'P') hole(cx * T + 8 - cam, cy * T + 8, c === '@' ? 40 : 18, .8); }
     for (const tk of this.level.talkers) hole(tk.x * T + 8 - cam, tk.y * T + 8, 22, .7);
     hole(this.goalX - cam, 8 * T, 40, .8);
-    ctx.drawImage(this.dark, 0, 0);
+    ctx.drawImage(this.dark, 0, 0, this.dark.width, this.dark.height, 0, 0, W, H);
   }
   drawWonderFrame(ctx) {
     const t = this.wonder.t;
-    ctx.save(); ctx.lineWidth = 3; ctx.strokeStyle = `hsla(${(t * 4) % 360},90%,65%,.8)`; ctx.strokeRect(1.5, 1.5, W - 3, H - 3); ctx.restore();
+    ctx.save(); ctx.lineWidth = 3; ctx.strokeStyle = `hsla(${(t * 4) % 360},90%,65%,.8)`; ctx.beginPath(); ctx.roundRect(1.5, 1.5, W - 3, H - 3, 6); ctx.stroke(); ctx.restore();
     if (t < 150) {
       const a = t < 20 ? t / 20 : t > 120 ? (150 - t) / 30 : 1;
-      ctx.globalAlpha = a; ctx.font = 'bold 20px sans-serif';
-      this.text(ctx, this.level.wonder.label, W / 2 + Math.sin(t / 5) * 2, 60, `hsl(${(t * 6) % 360},90%,70%)`, 'center');
+      ctx.globalAlpha = a; ctx.font = 'bold 22px system-ui, sans-serif';
+      this.text(ctx, this.level.wonder.label, W / 2 + Math.sin(t / 5) * 2, 58, `hsl(${(t * 6) % 360},90%,70%)`, 'center');
       ctx.globalAlpha = 1;
     }
   }
   drawHud(ctx) {
-    ctx.font = 'bold 10px sans-serif';
-    ctx.drawImage(this.sp.coin, 4, 2, 8, 12, 8, 5, 8, 12); this.text(ctx, `×${String(this.coins).padStart(2, '0')}`, 20, 6);
-    this.text(ctx, `♥ ×${this.lives}`, 60, 6, '#ff8a80');
-    ctx.drawImage(this.sp.fcoin, 0, 0, 16, 16, 100, 4, 12, 12);
-    for (let i = 0; i < 3; i++) { ctx.fillStyle = i < this.flowerCoins.length ? '#ce93d8' : 'rgba(255,255,255,.35)'; ctx.fillRect(114 + i * 8, 8, 6, 6); }
-    this.text(ctx, `TIME ${String(Math.max(0, this.time)).padStart(3, '0')}`, W - 8, 6, this.time <= 50 && (this.frame >> 4) % 2 ? '#ff5252' : '#fff', 'right');
-    if (this.wonder.done) this.text(ctx, '❀ シード', W / 2, 6, '#a5d6a7', 'center');
+    A.rr(ctx, 4, 3, 140, 16, 8, 'rgba(0,0,0,.35)');
+    ctx.font = 'bold 10px system-ui, sans-serif';
+    A.drawCoin(ctx, 13, 11, this.frame / 12, 5); this.text(ctx, `×${String(this.coins).padStart(2, '0')}`, 21, 5.5);
+    this.text(ctx, `♥ ×${this.lives}`, 54, 5.5, '#ff8a80');
+    A.drawFlowerCoin(ctx, 94, 11, this.frame);
+    for (let i = 0; i < 3; i++) A.ell(ctx, 108 + i * 9, 11, 3, 3, i < this.flowerCoins.length ? '#ce93d8' : 'rgba(255,255,255,.35)', 'rgba(0,0,0,.3)', .5);
+    A.rr(ctx, W - 66, 3, 62, 16, 8, 'rgba(0,0,0,.35)');
+    this.text(ctx, `TIME ${String(Math.max(0, this.time)).padStart(3, '0')}`, W - 10, 5.5, this.time <= 50 && (this.frame >> 4) % 2 ? '#ff5252' : '#fff', 'right');
+    if (this.wonder.done) { A.rr(ctx, W / 2 - 30, 3, 60, 16, 8, 'rgba(0,0,0,.35)'); A.drawSeed(ctx, W / 2 - 18, 11, this.frame); this.text(ctx, 'シード', W / 2 - 6, 5.5, '#c5e1a5'); }
     if (this.introT > 0) {
-      ctx.globalAlpha = Math.min(1, this.introT / 30); ctx.font = 'bold 14px sans-serif';
-      ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(W / 2 - 100, 96, 200, 40);
-      this.text(ctx, `WORLD 1-${this.level.id.slice(-1)}`, W / 2, 100, '#ffd54f', 'center'); this.text(ctx, this.level.name, W / 2, 118, '#fff', 'center'); ctx.globalAlpha = 1;
+      ctx.globalAlpha = Math.min(1, this.introT / 30); ctx.font = 'bold 14px system-ui, sans-serif';
+      A.rr(ctx, W / 2 - 100, 96, 200, 42, 10, 'rgba(0,0,0,.5)');
+      this.text(ctx, `WORLD 1-${this.level.id.slice(-1)}`, W / 2, 101, '#ffd54f', 'center'); this.text(ctx, this.level.name, W / 2, 119, '#fff', 'center'); ctx.globalAlpha = 1;
     }
-    if (this.state === 'clear' && this.clearPhase !== 'slide') {
-      ctx.font = 'bold 18px sans-serif'; this.text(ctx, 'コース クリア！', W / 2, 90, '#ffd54f', 'center');
+    if (this.state === 'clear' && this.clearPhase === 'walk') {
+      ctx.font = 'bold 20px system-ui, sans-serif'; this.text(ctx, 'コース クリア！', W / 2, 88, '#ffd54f', 'center');
     }
   }
 }

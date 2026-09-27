@@ -1,4 +1,4 @@
-// ホーム画面用アイコンをドット絵から生成する: npm run icons（Chromium + Playwright が必要）
+// ホーム画面用アイコンをゲームのベクター描画から生成する: npm run icons（Chromium + Playwright が必要）
 import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
