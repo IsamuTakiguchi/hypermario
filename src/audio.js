@@ -53,14 +53,22 @@ export class GameAudio {
     if (!AC && !injected) return false;
     const c = this.ctx = injected ?? new AC();
     this.master = c.createGain(); this.master.gain.value = this.muted ? 0 : .85; this.master.connect(c.destination);
-    this.comp = c.createDynamicsCompressor(); this.comp.threshold.value = -18; this.comp.knee.value = 6; this.comp.ratio.value = 12; this.comp.attack.value = .002; this.comp.release.value = .12; this.comp.connect(this.master);
-    this.music = c.createGain(); this.music.gain.value = .55; this.music.connect(this.comp);
+    this.comp = c.createDynamicsCompressor(); this.comp.threshold.value = -12; this.comp.knee.value = 10; this.comp.ratio.value = 3; this.comp.attack.value = .006; this.comp.release.value = .2; this.comp.connect(this.master);
+    // 音楽バス: 低域の濁りを切るハイパス → 高域を少し持ち上げるシェルフ → コンプ
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 38;
+    const air = c.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 4000; air.gain.value = 3.5;
+    hp.connect(air); air.connect(this.comp);
+    this.music = c.createGain(); this.music.gain.value = .78; this.music.connect(hp);
+    this.canPan = typeof c.createStereoPanner === 'function';
     this.sfxBus = c.createGain(); this.sfxBus.gain.value = 1; this.sfxBus.connect(this.comp);
     // リバーブ（ノイズから作るインパルス応答）
-    const len = Math.floor(c.sampleRate * 1.6), ir = c.createBuffer(2, len, c.sampleRate);
-    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    const len = Math.floor(c.sampleRate * 1.1), ir = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
     this.verb = c.createConvolver(); this.verb.buffer = ir;
-    this.verbGain = c.createGain(); this.verbGain.gain.value = .22; this.verb.connect(this.verbGain); this.verbGain.connect(this.comp);
+    const vhp = c.createBiquadFilter(); vhp.type = 'highpass'; vhp.frequency.value = 500;
+    const vlp = c.createBiquadFilter(); vlp.type = 'lowpass'; vlp.frequency.value = 6500;
+    this.verbIn = vhp; vhp.connect(vlp); vlp.connect(this.verb);
+    this.verbGain = c.createGain(); this.verbGain.gain.value = .14; this.verb.connect(this.verbGain); this.verbGain.connect(this.comp);
     const nlen = c.sampleRate; this.noise = c.createBuffer(1, nlen, c.sampleRate);
     const nd = this.noise.getChannelData(0); for (let i = 0; i < nlen; i++) nd[i] = Math.random() * 2 - 1;
     return true;
@@ -76,16 +84,22 @@ export class GameAudio {
     g.gain.setValueAtTime(Math.max(.0001, sus), Math.max(t + a + d, end)); g.gain.exponentialRampToValueAtTime(.0001, Math.max(t + a + d, end) + rel);
     return g;
   }
-  out(node, wet = .5) { node.connect(this.music); const s = this.ctx.createGain(); s.gain.value = wet; node.connect(s); s.connect(this.verb); }
+  out(node, wet = .3, pan = 0) {
+    let last = node;
+    if (pan && this.canPan) { const p = this.ctx.createStereoPanner(); p.pan.value = pan; node.connect(p); last = p; }
+    last.connect(this.music);
+    if (wet > 0) { const s = this.ctx.createGain(); s.gain.value = wet; last.connect(s); s.connect(this.verbIn); }
+  }
   brass(t, midi, dur, vel, short = false) {
-    const f = hz(midi), o1 = this.osc('sawtooth', f, 6), o2 = this.osc('sawtooth', f, -6), o3 = this.osc('square', f / 2);
-    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 1.2;
-    lp.frequency.setValueAtTime(500, t); lp.frequency.linearRampToValueAtTime(2800 + midi * 10, t + .05); lp.frequency.exponentialRampToValueAtTime(1100, t + Math.max(.2, dur));
-    const g = this.env(t, .025, vel, .12, vel * .7, .09, t + dur);
-    const sub = this.ctx.createGain(); sub.gain.value = .35; o3.connect(sub); sub.connect(lp);
-    const lfo = this.osc('sine', 5.5), lg = this.ctx.createGain(); lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(short ? 0 : f * .012, t + .25);
+    const f = hz(midi), o1 = this.osc('sawtooth', f, 5), o2 = this.osc('sawtooth', f, -5), o3 = this.osc('triangle', f * 2);
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = .8;
+    lp.frequency.setValueAtTime(900, t); lp.frequency.linearRampToValueAtTime(4200 + midi * 12, t + .04); lp.frequency.exponentialRampToValueAtTime(1900, t + Math.max(.25, dur));
+    const hpf = this.ctx.createBiquadFilter(); hpf.type = 'highpass'; hpf.frequency.value = 160;
+    const g = this.env(t, .02, vel, .1, vel * .72, .08, t + dur);
+    const oct = this.ctx.createGain(); oct.gain.value = .12; o3.connect(oct); oct.connect(lp);
+    const lfo = this.osc('sine', 5.5), lg = this.ctx.createGain(); lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(short ? 0 : f * .01, t + .25);
     lfo.connect(lg); lg.connect(o1.frequency); lg.connect(o2.frequency);
-    o1.connect(lp); o2.connect(lp); lp.connect(g); this.out(g, .45);
+    o1.connect(lp); o2.connect(lp); lp.connect(hpf); hpf.connect(g); this.out(g, short ? .15 : .28, short ? .2 : 0);
     for (const o of [o1, o2, o3, lfo]) { o.start(t); o.stop(t + dur + .3); }
   }
   synth(t, midi, dur, vel) { // ワンダー用のきらびやかなリード
@@ -97,46 +111,47 @@ export class GameAudio {
     const hi = this.ctx.createGain(); hi.gain.value = .25; o3.connect(hi); hi.connect(lp);
     const lfo = this.osc('sine', 6.5), lg = this.ctx.createGain(); lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f * .01, t + .2);
     lfo.connect(lg); lg.connect(o1.frequency); lg.connect(o2.frequency);
-    o1.connect(lp); o2.connect(lp); lp.connect(g); this.out(g, .5);
+    const hpf = this.ctx.createBiquadFilter(); hpf.type = 'highpass'; hpf.frequency.value = 180;
+    o1.connect(lp); o2.connect(lp); lp.connect(hpf); hpf.connect(g); this.out(g, .3);
     for (const o of [o1, o2, o3, lfo]) { o.start(t); o.stop(t + dur + .3); }
   }
   epiano(t, midi, dur, vel) {
     const f = hz(midi), g = this.ctx.createGain();
     g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vel, t + .006); g.gain.exponentialRampToValueAtTime(.0001, t + Math.max(dur, .4) * 1.4);
-    for (const [mul, v, dec] of [[1, 1, 1], [2, .28, .6], [7, .12, .12], [.5, .2, 1]]) {
+    for (const [mul, v, dec] of [[1, 1, 1], [2, .22, .6], [3, .08, .4], [7, .12, .1]]) {
       const o = this.osc('sine', f * mul), og = this.ctx.createGain();
       og.gain.setValueAtTime(v, t); og.gain.exponentialRampToValueAtTime(.001, t + Math.max(.05, dec * Math.max(dur, .4) * 1.4));
       o.connect(og); og.connect(g); o.start(t); o.stop(t + dur * 1.5 + .5);
     }
-    this.out(g, .6);
+    this.out(g, .22, -.25);
   }
   bass(t, midi, dur, vel) {
-    const f = hz(midi), o1 = this.osc('triangle', f), o2 = this.osc('sawtooth', f), o3 = this.osc('sine', f / 2);
-    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(260, t + .18); lp.Q.value = 2;
-    const g = this.env(t, .005, vel, .12, vel * .5, .06, t + dur);
-    const sg = this.ctx.createGain(); sg.gain.value = .4; o2.connect(sg); sg.connect(lp);
-    const sub = this.ctx.createGain(); sub.gain.value = .5; o3.connect(sub); sub.connect(g);
-    o1.connect(lp); lp.connect(g); this.out(g, .1);
+    const f = hz(midi), o1 = this.osc('triangle', f), o2 = this.osc('sine', f * .5), o3 = this.osc('sawtooth', f);
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(1400, t); lp.frequency.exponentialRampToValueAtTime(420, t + .12); lp.Q.value = 1;
+    const g = this.env(t, .004, vel, .1, vel * .55, .05, t + dur);
+    const sub = this.ctx.createGain(); sub.gain.value = .12; o2.connect(sub); sub.connect(g);
+    const sg = this.ctx.createGain(); sg.gain.value = .18; o3.connect(sg); sg.connect(lp);
+    o1.connect(lp); lp.connect(g); this.out(g, 0);
     for (const o of [o1, o2, o3]) { o.start(t); o.stop(t + dur + .2); }
   }
   kick(t, vel = .9) {
     const o = this.osc('sine', 160), g = this.ctx.createGain();
-    o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(42, t + .11);
-    g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(.0001, t + .28);
+    o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(48, t + .08);
+    g.gain.setValueAtTime(vel * .8, t); g.gain.exponentialRampToValueAtTime(.0001, t + .18);
     const click = this.noiseSrc(); const cg = this.ctx.createGain(); cg.gain.setValueAtTime(vel * .3, t); cg.gain.exponentialRampToValueAtTime(.0001, t + .02);
     click.connect(cg); cg.connect(this.music); click.start(t); click.stop(t + .03);
     o.connect(g); g.connect(this.music); o.start(t); o.stop(t + .3);
   }
   snare(t, vel = .5, rim = false) {
-    const n = this.noiseSrc(), bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = rim ? 3200 : 1900; bp.Q.value = rim ? 4 : .9;
-    const g = this.ctx.createGain(); g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(.0001, t + (rim ? .08 : .18));
-    n.connect(bp); bp.connect(g); this.out(g, .6); n.start(t); n.stop(t + .2);
+    const n = this.noiseSrc(), bp = this.ctx.createBiquadFilter(); bp.type = rim ? 'bandpass' : 'highpass'; bp.frequency.value = rim ? 3400 : 1500; bp.Q.value = rim ? 4 : .7;
+    const g = this.ctx.createGain(); g.gain.setValueAtTime(vel * .8, t); g.gain.exponentialRampToValueAtTime(.0001, t + (rim ? .07 : .16));
+    n.connect(bp); bp.connect(g); this.out(g, .25, .12); n.start(t); n.stop(t + .2);
     if (!rim) { const o = this.osc('triangle', 210), og = this.ctx.createGain(); og.gain.setValueAtTime(vel * .7, t); og.gain.exponentialRampToValueAtTime(.0001, t + .1); o.frequency.exponentialRampToValueAtTime(150, t + .08); o.connect(og); og.connect(this.music); o.start(t); o.stop(t + .12); }
   }
   hat(t, vel = .22, open = false) {
-    const n = this.noiseSrc(), hp = this.ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7500;
-    const g = this.ctx.createGain(); g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(.0001, t + (open ? .3 : .045));
-    n.connect(hp); hp.connect(g); g.connect(this.music); n.start(t); n.stop(t + .32);
+    const n = this.noiseSrc(), hp = this.ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 8200;
+    const g = this.ctx.createGain(); g.gain.setValueAtTime(vel * .8, t); g.gain.exponentialRampToValueAtTime(.0001, t + (open ? .28 : .05));
+    n.connect(hp); hp.connect(g); this.out(g, 0, .3); n.start(t); n.stop(t + .32);
   }
   noiseSrc() { const s = this.ctx.createBufferSource(); s.buffer = this.noise; s.loop = true; return s; }
   lead(kind, t, midi, dur, vel) { if (kind === 'brass') this.brass(t, midi, dur, vel); else if (kind === 'synth') this.synth(t, midi, dur, vel); else this.epiano(t, midi, dur, vel); }
@@ -192,26 +207,26 @@ export class GameAudio {
         if (tok === '-' || tok === '.') return;
         let d = 1; while (toks[i + d] === '.') d++;
         const midi = nm(tok);
-        at(b * 16 + i, (t, sd) => this.lead(song.lead, t, midi, sd * d * .9, song.lead === 'epiano' ? .22 : .14));
+        at(b * 16 + i, (t, sd) => this.lead(song.lead, t, midi, sd * d * .9, song.lead === 'epiano' ? .3 : .19));
       });
     });
     chords.forEach((ch, b) => {
       const next = chords[(b + 1) % bars];
       // コード伴奏（エレピ）: 3度・5度・7度＋ルートを 60〜76 の範囲に
-      const voicing = ch.iv.slice(1).map(i => 60 + ((ch.root + i) % 12)).concat([72 + ((ch.root) % 12) - (ch.root > 6 ? 12 : 0)]).map(n => n < 62 ? n + 12 : n);
-      for (const s of st.comp) at(b * 16 + s, (t, sd) => voicing.forEach((n, k) => this.epiano(t + k * .004, n, sd * st.compDur, .09)));
+      const voicing = ch.iv.slice(1).map(i => 64 + ((ch.root + i) % 12)).concat([76 + (ch.root % 12) - (ch.root > 5 ? 12 : 0)]).map(n => n < 66 ? n + 12 : n);
+      for (const s of st.comp) at(b * 16 + s, (t, sd) => voicing.forEach((n, k) => this.epiano(t + k * .004, n, sd * st.compDur, .075)));
       for (const s of st.stab(b)) at(b * 16 + s, (t, sd) => voicing.forEach(n => this.brass(t, n, sd * 1.4, .05, true)));
       // ベース
       const root = 36 + ch.root, fifth = root + 7, third = root + ch.iv[1];
       const approach = 36 + next.root - 1;
       for (const [s, kind] of st.bass(b)) {
         const n = kind === 'root' ? root : kind === 'fifth' ? fifth : kind === 'fifthLow' ? fifth - 12 : kind === 'third' ? third : kind === 'approach' ? approach : root;
-        at(b * 16 + s, (t, sd) => this.bass(t, n, sd * (kind === 'ghost' ? 1 : 2.5), kind === 'ghost' ? .18 : .42));
+        at(b * 16 + s, (t, sd) => this.bass(t, n, sd * (kind === 'ghost' ? 1 : 2.5), kind === 'ghost' ? .12 : .3));
       }
       // ドラム
-      for (const s of st.kick(b)) at(b * 16 + s, t => this.kick(t, s === 0 ? .9 : .7));
+      for (const s of st.kick(b)) at(b * 16 + s, t => this.kick(t, s === 0 ? .7 : .55));
       for (const s of st.snare) at(b * 16 + s, t => this.snare(t, song.style === 'latin' ? .35 : .45, song.style === 'latin'));
-      for (const s of st.hat) at(b * 16 + s, t => this.hat(t, s % 4 === 0 ? .22 : .12));
+      for (const s of st.hat) at(b * 16 + s, t => this.hat(t, s % 4 === 0 ? .26 : .14));
       for (const s of st.openHat) if (b % 2 === 1 || song.style === 'fanfare') at(b * 16 + s, t => this.hat(t, .18, true));
     });
     const stepDur = 60 / song.bpm / 4;
