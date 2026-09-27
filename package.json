@@ -1,0 +1,13 @@
+{
+  "name": "hyper-wonder",
+  "version": "1.0.0",
+  "description": "Super Mario Bros. Wonder 風のオリジナル 2D アクションゲーム（HTML5 Canvas / 依存ライブラリなし）",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "node scripts/serve.js",
+    "smoke": "node scripts/smoke.js"
+  },
+  "license": "MIT"
+}
