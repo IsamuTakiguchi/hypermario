@@ -1,6 +1,6 @@
 # HYPER WONDER
 
-『スーパーマリオブラザーズ ワンダー』の遊び心を **オリジナルのドット絵・音楽・キャラクター** で再現した、ブラウザで遊べる 2D アクションゲームです。
+『スーパーマリオブラザーズ ワンダー』の遊び心を **オリジナルのキャラクター・音楽** で再現した、ブラウザで遊べる 2D アクションゲームです。キャラクターや背景はすべてベクター描画（グラデーションと陰影）で、端末の解像度に合わせてなめらかに表示されます。
 依存ライブラリなし（HTML5 Canvas + 素の JavaScript）。push するだけで GitHub Actions が GitHub Pages に自動デプロイします。
 
 > 任天堂の画像・音楽・名称は一切使用していないファンメイド作品です。
@@ -33,12 +33,12 @@
 npm test          # コースデータとスプライトの検証（Node 22 / 依存なし）
 npm start         # http://localhost:8080/ で起動
 npm run smoke     # Chromium を起動して実際に操作する動作確認（Playwright が入った環境向け）
-npm run icons     # ホーム画面用アイコン（icons/）をドット絵から再生成
+npm run icons     # ホーム画面用アイコン（icons/）を再生成
 ```
 
 - `src/levels.js` … コースデータ。座標指定でタイルを置くビルダーで書かれており、`npm test` が整合性を検証します
 - `src/game.js` … 物理・敵・アイテム・ワンダー効果・描画
-- `src/sprites.js` … 文字列で定義したドット絵
+- `src/art.js` … キャラクター・敵・アイテム・ブロック・背景のベクター描画
 - `src/audio.js` … WebAudio で合成する効果音と BGM
 
 ## 自動デプロイ（GitHub Actions → GitHub Pages）

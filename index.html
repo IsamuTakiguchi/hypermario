@@ -18,7 +18,7 @@
   html, body { margin: 0; padding: 0; height: 100%; background: #0b0b1a; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
   body { display: flex; align-items: center; justify-content: center; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
   #stage { position: relative; }
-  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; background: #000; }
+  canvas { display: block; background: #000; border-radius: 6px; box-shadow: 0 8px 40px rgba(0,0,0,.5); }
   #touch { position: fixed; inset: 0; pointer-events: none; display: none; }
   #touch.on { display: block; }
   .btn { position: absolute; width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.45); color: #fff; font-size: 22px; font-weight: 700; display: flex; align-items: center; justify-content: center; pointer-events: auto; bottom: 24px; }
