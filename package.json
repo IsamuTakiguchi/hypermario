@@ -7,7 +7,7 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "start": "node scripts/serve.js",
-    "smoke": "node scripts/smoke.js",
+    "smoke": "node scripts/smoke.js && node scripts/smoke-touch.js",
     "icons": "node scripts/make-icons.mjs"
   },
   "license": "MIT"
