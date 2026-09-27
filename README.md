@@ -38,12 +38,13 @@ npm test          # コースデータとスプライトの検証（Node 22 / �
 npm start         # http://localhost:8080/ で起動
 npm run smoke     # Chromium を起動して実際に操作する動作確認（キーボード＋タッチ。Playwright が入った環境向け）
 npm run icons     # ホーム画面用アイコン（icons/）を再生成
+node scripts/render-bgm.mjs  # BGM を WAV に書き出して試聴・音量チェック
 ```
 
 - `src/levels.js` … コースデータ。座標指定でタイルを置くビルダーで書かれており、`npm test` が整合性を検証します
 - `src/game.js` … 物理・敵・アイテム・ワンダー効果・描画
 - `src/art.js` … キャラクター・敵・アイテム・ブロック・背景のベクター描画
-- `src/audio.js` … WebAudio で合成する効果音と BGM
+- `src/audio.js` … WebAudio で合成する効果音と BGM。ブラス・エレピ・ベース・ドラム・リバーブをその場で合成し、コード進行（ジャズコード）とメロディのデータから、スウィング／ラテンのビッグバンド風伴奏を自動生成します（曲はすべてオリジナル）
 
 ## 自動デプロイ（GitHub Actions → GitHub Pages）
 

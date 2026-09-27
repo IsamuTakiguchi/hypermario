@@ -2,3 +2,4 @@ node_modules/
 dist/
 scripts/shot-*.png
 .DS_Store
+scripts/bgm/
