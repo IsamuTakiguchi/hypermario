@@ -1,0 +1,61 @@
+# push のたびにテストを実行し、main ブランチなら GitHub Pages へ自動デプロイする
+name: CI & Deploy to GitHub Pages
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時に複数のデプロイが走らないようにする
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: テスト（コースデータ・スプライト検証）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+
+  build:
+    name: サイトをビルド
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: GitHub Pages を有効化（未設定なら自動で ON にする）
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: 配信するファイルをまとめる
+        run: |
+          mkdir -p dist
+          cp -r index.html .nojekyll src dist/
+          ls -R dist
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: GitHub Pages へデプロイ
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

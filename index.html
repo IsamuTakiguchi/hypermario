@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>HYPER WONDER</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%23ffd54f'/%3E%3Ccircle cx='8' cy='8' r='3' fill='%23e53935'/%3E%3C/svg%3E">
+<meta name="description" content="ワンダーフラワーでコースが大変身するオリジナル2Dアクション。ブラウザでそのまま遊べます。">
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #0b0b1a; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+  body { display: flex; align-items: center; justify-content: center; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #stage { position: relative; }
+  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; background: #000; }
+  #touch { position: fixed; inset: 0; pointer-events: none; display: none; }
+  #touch.on { display: block; }
+  .btn { position: absolute; width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.45); color: #fff; font-size: 22px; font-weight: 700; display: flex; align-items: center; justify-content: center; pointer-events: auto; bottom: 24px; }
+  .btn:active, .btn.down { background: rgba(255,255,255,.45); }
+  #bL { left: 20px; } #bR { left: 100px; } #bD { left: 60px; bottom: 96px; }
+  #bA { right: 20px; } #bB { right: 100px; }
+  #hint { position: fixed; left: 0; right: 0; bottom: 6px; text-align: center; color: rgba(255,255,255,.5); font-size: 12px; pointer-events: none; }
+  @media (pointer: coarse) { #hint { display: none; } }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="game" width="400" height="240"></canvas></div>
+<div id="touch">
+  <div class="btn" id="bL" data-key="ArrowLeft">◀</div>
+  <div class="btn" id="bR" data-key="ArrowRight">▶</div>
+  <div class="btn" id="bD" data-key="ArrowDown">▼</div>
+  <div class="btn" id="bB" data-key="KeyX">B</div>
+  <div class="btn" id="bA" data-key="KeyZ">A</div>
+</div>
+<div id="hint">← → 移動　Z / Space ジャンプ　X ダッシュ・アタック　↓ しゃがむ　Enter 決定</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
