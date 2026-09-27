@@ -44,70 +44,91 @@ export function shadow(ctx, x, y, rx, alpha = .28) {
 const OUT = 'rgba(20,10,40,.35)';
 
 // ---------- 主人公 ----------
-// 原点は足元の中心。右向きで描く。o = { form, pose, phase, t, attack }
+// 原点は足元の中心。右向きで描く。o = { form, pose, phase, t, glide }
+// 王道の配管工スタイル: つばの前に出た帽子・大きな鼻・ヒゲ・口・シャツ・オーバーオール・白手袋・茶色の靴
 export function drawHero(ctx, o) {
   const big = o.form !== 'small', trunk = o.form === 'trunk', bubble = o.form === 'bubble';
-  const s = big ? 1 : .7;
-  const capC = bubble ? ['#5ee6f5', '#1aa7c0', '#0e7a8c'] : ['#c46be0', '#8e24aa', '#5b1178'];
-  const skin = trunk ? ['#e6e9f0', '#b7bfcc', '#7d8797'] : ['#ffe9d2', '#ffcfa3', '#d9955f'];
-  const shirt = bubble ? ['#ffffff', '#e8f6ff', '#b9d5e6'] : ['#fff3a3', '#ffd54f', '#e0a000'];
-  const blue = ['#63b3ff', '#1e88e5', '#0d47a1'];
-  const shoe = trunk ? ['#8d99ab', '#5b6673', '#333b45'] : ['#b06a3a', '#7a4320', '#4a2810'];
+  const s = big ? 1 : .72;
+  const capC = bubble ? ['#8ff0ff', '#35c3e6', '#137a99'] : ['#ff6b5e', '#e32d1f', '#8c1108'];
+  const shirtC = capC;
+  const skin = trunk ? ['#eef0f5', '#c3cad6', '#8b96a6'] : ['#ffe3c4', '#ffc79a', '#d98d55'];
+  const ovr = bubble ? ['#ffffff', '#e6eef5', '#aebdcc'] : ['#5aa9ff', '#1f6fe0', '#0e3f9c'];
+  const shoe = ['#a8683a', '#6e3d1c', '#3d200c'];
+  const hair = trunk ? ['#6b7280', '#3d434d'] : ['#7a4a22', '#4a2a10'];
   ctx.save(); ctx.scale(s, s);
   const walk = o.pose === 'walk', jump = o.pose === 'jump', crouch = o.pose === 'crouch', attack = o.pose === 'attack';
   const sw = walk ? Math.sin(o.phase) : 0;
-  const bob = walk ? Math.abs(Math.cos(o.phase)) * .8 : (o.pose === 'idle' ? Math.sin(o.t / 14) * .3 : 0);
-  if (crouch) ctx.scale(1.15, .68);
-  else if (jump) ctx.scale(.94, 1.06);
+  const bob = walk ? Math.abs(Math.cos(o.phase)) * .9 : (o.pose === 'idle' ? Math.sin(o.t / 14) * .3 : 0);
+  if (crouch) ctx.scale(1.12, .66);
+  else if (jump) ctx.scale(.95, 1.05);
+  if (trunk) ctx.scale(1.12, 1);
   ctx.translate(0, -bob);
-  const legF = jump ? 2.5 : sw * 3, legB = jump ? -2 : -sw * 3;
-  const legLiftF = walk ? Math.max(0, Math.sin(o.phase)) * 2 : jump ? 3 : 0, legLiftB = walk ? Math.max(0, -Math.sin(o.phase)) * 2 : jump ? 1 : 0;
-  // 後ろの腕
-  const armB = jump ? -5 : -sw * 2.5;
-  capsule(ctx, -4.5, -13, -5.5 + armB, jump ? -18 : -8.5, 1.5, shirt[1]);
-  ell(ctx, -5.5 + armB, jump ? -18.5 : -8, 1.9, 1.9, '#ffffff', OUT, .5);
+  const legF = jump ? 2.5 : sw * 3.2, legB = jump ? -2 : -sw * 3.2;
+  const liftF = walk ? Math.max(0, Math.sin(o.phase)) * 2.2 : jump ? 3 : 0, liftB = walk ? Math.max(0, -Math.sin(o.phase)) * 2.2 : jump ? 1 : 0;
+  // 後ろの腕（シャツの袖 → 白手袋）
+  const armB = jump ? -5 : -sw * 2.6;
+  capsule(ctx, -4.8, -14, -5.8 + armB, jump ? -19 : -9, 1.6, shirtC[1]);
+  ell(ctx, -6 + armB, jump ? -19.5 : -8.4, 2.1, 2.1, orb(ctx, -6 + armB, jump ? -19.5 : -8.4, 2.1, '#ffffff', '#f2f2f2', '#bcbcc4'), OUT, .5);
   // 脚と靴
-  for (const [x, lift, front] of [[-2.6 + legB, legLiftB, false], [2.4 + legF, legLiftF, true]]) {
-    capsule(ctx, x * .4, -9, x, -3 - lift, 2.2, front ? blue[1] : blue[2]);
-    const g = orb(ctx, x + 1, -1.8 - lift, 3.2, shoe[0], shoe[1], shoe[2]);
-    ell(ctx, x + 1, -1.8 - lift, 3.4, 2, g, OUT, .5);
+  for (const [x, lift, front] of [[-2.8 + legB, liftB, false], [2.6 + legF, liftF, true]]) {
+    capsule(ctx, x * .35, -9.5, x, -3.2 - lift, 2.5, front ? ovr[1] : ovr[2]);
+    ell(ctx, x + 1.3, -2 - lift, 3.8, 2.2, orb(ctx, x + 1.3, -2 - lift, 3.6, shoe[0], shoe[1], shoe[2]), OUT, .5);
+    ell(ctx, x + 2.6, -2.8 - lift, 1.2, .6, 'rgba(255,255,255,.25)');
   }
-  // 胴体（オーバーオール）
-  ctx.beginPath(); ctx.roundRect(-5.2, -16, 10.4, 9.5, 3.5);
-  ctx.fillStyle = orb(ctx, 0, -12, 8, blue[0], blue[1], blue[2]); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = .5; ctx.stroke();
-  // シャツ（肩と袖）
-  ctx.beginPath(); ctx.roundRect(-5.8, -17.5, 11.6, 4.2, 2); ctx.fillStyle = orb(ctx, 0, -16, 7, shirt[0], shirt[1], shirt[2]); ctx.fill();
-  ell(ctx, -2, -13.2, .8, .8, '#ffd54f'); ell(ctx, 2, -13.2, .8, .8, '#ffd54f');
+  // シャツ（胴の上半分と肩）
+  ctx.beginPath(); ctx.roundRect(-6.4, -19, 12.8, 7, 3.2); ctx.fillStyle = orb(ctx, 0, -17, 8, shirtC[0], shirtC[1], shirtC[2]); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = .5; ctx.stroke();
+  // オーバーオール（胸当て・ストラップ・ボタン）
+  ctx.beginPath(); ctx.roundRect(-5.6, -15.5, 11.2, 9.5, 3.2); ctx.fillStyle = orb(ctx, 0, -11, 8, ovr[0], ovr[1], ovr[2]); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(-3.6, -19, 7.2, 5, 1.5); ctx.fillStyle = ovr[1]; ctx.fill(); ctx.stroke();
+  ell(ctx, -2, -15, 1, 1, orb(ctx, -2, -15, 1, '#fff3a3', '#ffd54f', '#e0a000'), OUT, .3); ell(ctx, 2, -15, 1, 1, orb(ctx, 2, -15, 1, '#fff3a3', '#ffd54f', '#e0a000'), OUT, .3);
   // 前の腕
-  const armF = attack ? 6 : jump ? 5 : sw * 2.5;
-  capsule(ctx, 4.5, -13, 5.5 + armF, jump ? -18 : attack ? -12 : -8.5, 1.5, shirt[1]);
-  ell(ctx, 5.5 + armF, jump ? -18.5 : attack ? -12 : -8, 1.9, 1.9, '#ffffff', OUT, .5);
+  const armF = attack ? 6 : jump ? 5 : sw * 2.6;
+  capsule(ctx, 4.8, -14, 5.8 + armF, jump ? -19 : attack ? -12 : -9, 1.6, shirtC[1]);
+  ell(ctx, 6 + armF, jump ? -19.5 : attack ? -12 : -8.4, 2.1, 2.1, orb(ctx, 6 + armF, jump ? -19.5 : attack ? -12 : -8.4, 2.1, '#ffffff', '#f2f2f2', '#bcbcc4'), OUT, .5);
   // 頭
-  const hy = -21.5;
-  if (trunk) { ell(ctx, -4.5, hy - 1, 3.6, 4, orb(ctx, -4.5, hy - 1, 4, skin[0], skin[1], skin[2]), OUT, .5); ell(ctx, -4.5, hy - 1, 2, 2.4, '#f2b8c6'); }
-  ell(ctx, .5, hy, 6, 5.6, orb(ctx, .5, hy, 6, skin[0], skin[1], skin[2]), OUT, .5);
-  // 目
-  ell(ctx, 3.2, hy - .3, 1.6, 2.1, '#ffffff', OUT, .4);
-  ell(ctx, 3.6, hy - .1, .8, 1.2, '#1b1b2f');
-  ell(ctx, 3.9, hy - .7, .3, .35, '#ffffff');
+  const hy = -23.5;
+  if (trunk) { // ゾウの耳
+    for (const ex of [-5.5]) { ell(ctx, ex, hy - .5, 4.2, 4.6, orb(ctx, ex, hy - .5, 4.5, skin[0], skin[1], skin[2]), OUT, .5); ell(ctx, ex, hy - .3, 2.4, 2.8, '#f3bfcd'); }
+  }
+  ell(ctx, -3.6, hy + 1.5, 3.4, 4, hair[1]); // 後ろ髪
+  ell(ctx, .8, hy, 6.4, 5.9, orb(ctx, .8, hy, 6.4, skin[0], skin[1], skin[2]), OUT, .5);
+  ell(ctx, -3.2, hy + 1.6, 1.3, 2.6, hair[0]); // もみあげ
+  if (!trunk) { ell(ctx, -5.6, hy + .4, 1.5, 1.9, orb(ctx, -5.6, hy + .4, 1.6, skin[0], skin[1], skin[2]), OUT, .4); ell(ctx, -5.6, hy + .4, .6, .9, skin[2]); } // 耳
+  // 目（3/4 視点で2つ）と眉
+  for (const [ex, r] of [[2.4, 1.15], [5.4, 1.35]]) {
+    ell(ctx, ex, hy - .8, r, r * 1.5, '#ffffff', OUT, .4);
+    ell(ctx, ex + .35, hy - .5, r * .55, r * .85, '#1e2a8a'); ell(ctx, ex + .45, hy - .4, r * .3, r * .5, '#0b1030');
+    ell(ctx, ex + .15, hy - 1.2, r * .22, r * .28, '#ffffff');
+  }
+  ctx.strokeStyle = hair[1]; ctx.lineWidth = .9; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(1.2, hy - 3.1); ctx.quadraticCurveTo(2.6, hy - 3.7, 3.6, hy - 3.2); ctx.moveTo(4.4, hy - 3.3); ctx.quadraticCurveTo(5.6, hy - 3.9, 6.8, hy - 3.2); ctx.stroke();
   // 鼻／ゾウのはな
   if (trunk) {
-    const tipX = attack ? 15 : 9.5, tipY = attack ? hy + 1 : hy + 8;
-    ctx.lineCap = 'round'; ctx.lineWidth = 3.2; ctx.strokeStyle = skin[1];
-    ctx.beginPath(); ctx.moveTo(5.5, hy + 1); ctx.quadraticCurveTo(attack ? 11 : 10, attack ? hy - 1 : hy + 2, tipX, tipY); ctx.stroke();
-    ctx.lineWidth = 1.2; ctx.strokeStyle = skin[0]; ctx.beginPath(); ctx.moveTo(6, hy); ctx.quadraticCurveTo(attack ? 11 : 9.5, attack ? hy - 2 : hy + 1, tipX - .5, tipY - 1); ctx.stroke();
-    ell(ctx, tipX, tipY, 1.7, 1.5, skin[2]);
-  } else ell(ctx, 6.6, hy + 1.2, 2, 1.6, orb(ctx, 6.6, hy + 1.2, 2, skin[0], skin[1], skin[2]), OUT, .4);
-  // 帽子
-  ctx.beginPath(); ctx.arc(.5, hy - 1, 6.6, Math.PI, 0); ctx.closePath();
-  ctx.fillStyle = orb(ctx, .5, hy - 4, 7, capC[0], capC[1], capC[2]); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = .5; ctx.stroke();
-  ctx.beginPath(); ctx.roundRect(2.5, hy - 2.6, 8.5, 2.4, 1.2); ctx.fillStyle = capC[1]; ctx.fill(); ctx.stroke();
-  ell(ctx, -.5, hy - 4.5, 2.4, 1, 'rgba(255,255,255,.35)');
-  ell(ctx, .5, hy - 3, 2.2, 2.2, '#ffffff', OUT, .4); // 帽子のマーク
-  ell(ctx, .5, hy - 3, 1, 1, capC[1]);
+    const tipX = attack ? 16 : 10.5, tipY = attack ? hy + 1 : hy + 8.5;
+    ctx.lineCap = 'round'; ctx.lineWidth = 3.4; ctx.strokeStyle = skin[1];
+    ctx.beginPath(); ctx.moveTo(6.5, hy + .8); ctx.quadraticCurveTo(attack ? 12 : 11.5, attack ? hy - 1 : hy + 2, tipX, tipY); ctx.stroke();
+    ctx.lineWidth = 1.2; ctx.strokeStyle = skin[0]; ctx.beginPath(); ctx.moveTo(7, hy); ctx.quadraticCurveTo(attack ? 12 : 11, attack ? hy - 2 : hy + 1, tipX - .5, tipY - 1); ctx.stroke();
+    ell(ctx, tipX, tipY, 1.8, 1.6, skin[2]);
+  } else {
+    ell(ctx, 7.6, hy + 1.3, 2.6, 2.1, orb(ctx, 7.6, hy + 1.3, 2.6, skin[0], skin[1], skin[2]), OUT, .4);
+    ell(ctx, 7, hy + .6, .8, .5, 'rgba(255,255,255,.5)');
+  }
+  // ヒゲ（鼻の下に3つのふくらみ）と口
+  for (const [mx, my, r] of [[3.4, hy + 3.2, 1.35], [5.6, hy + 3.7, 1.5], [7.8, hy + 3.4, 1.35], [9.6, hy + 2.7, 1]]) ell(ctx, mx, my, r, r * .85, orb(ctx, mx, my, r, hair[0], hair[1], hair[1]));
+  ctx.strokeStyle = '#5a1a1a'; ctx.lineWidth = .7; ctx.lineCap = 'round';
+  if (jump || attack) { ell(ctx, 5.8, hy + 5.5, 1.4, 1.1, '#5a1a1a'); ell(ctx, 5.8, hy + 5.9, .8, .5, '#ff8a80'); }
+  else { ctx.beginPath(); ctx.arc(5.6, hy + 4.4, 1.9, .25, Math.PI - .35); ctx.stroke(); }
+  // 帽子（ドーム＋前に出たつば＋エンブレム）
+  ctx.beginPath(); ctx.arc(.8, hy - 1.6, 7, Math.PI, 0); ctx.closePath();
+  ctx.fillStyle = orb(ctx, .8, hy - 5, 7.5, capC[0], capC[1], capC[2]); ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = .5; ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(-6.2, hy - 2.6, 14, 2.2, 1.1); ctx.fillStyle = capC[1]; ctx.fill(); ctx.stroke(); // 帽子のふち
+  ctx.beginPath(); ctx.roundRect(4.5, hy - 3.2, 9.5, 2.6, [1, 2, 2, 1]); ctx.fillStyle = orb(ctx, 9, hy - 2, 5, capC[0], capC[1], capC[2]); ctx.fill(); ctx.stroke(); // つば
+  ell(ctx, -1.2, hy - 6.2, 2.6, 1, 'rgba(255,255,255,.28)');
+  ell(ctx, 2.2, hy - 5, 2.4, 2.4, '#ffffff', OUT, .45); // エンブレム
+  ctx.fillStyle = capC[1]; ctx.font = 'bold 3.2px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('H', 2.2, hy - 4.8);
   if (o.glide) { // パラシュート
-    ctx.beginPath(); ctx.arc(0, hy - 14, 11, Math.PI, 0); ctx.closePath(); ctx.fillStyle = orb(ctx, 0, hy - 18, 12, '#ff9e80', '#ff5722', '#bf360c'); ctx.fill();
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = .6; ctx.beginPath(); ctx.moveTo(-10, hy - 14); ctx.lineTo(-2, hy - 5); ctx.moveTo(10, hy - 14); ctx.lineTo(2, hy - 5); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, hy - 16, 11, Math.PI, 0); ctx.closePath(); ctx.fillStyle = orb(ctx, 0, hy - 20, 12, '#ff9e80', '#ff5722', '#bf360c'); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = .6; ctx.beginPath(); ctx.moveTo(-10, hy - 16); ctx.lineTo(-2, hy - 7); ctx.moveTo(10, hy - 16); ctx.lineTo(2, hy - 7); ctx.stroke();
   }
   ctx.restore();
 }
