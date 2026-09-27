@@ -42,7 +42,7 @@ jobs:
       - name: 配信するファイルをまとめる
         run: |
           mkdir -p dist
-          cp -r index.html .nojekyll src dist/
+          cp -r index.html .nojekyll manifest.webmanifest src icons dist/
           ls -R dist
       - uses: actions/upload-pages-artifact@v3
         with:
