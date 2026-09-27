@@ -1,0 +1,41 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>icon renderer</title>
+<style>body{margin:0;background:#000}canvas{display:block}</style>
+<canvas id="c" width="512" height="512"></canvas>
+<script type="module">
+import { getSprites } from '../src/sprites.js';
+const sp = getSprites();
+const c = document.getElementById('c'), ctx = c.getContext('2d');
+// maskable=true なら角丸なし・全面塗り（OS が円や角丸にくり抜く）。中央 80% に主要要素を収める
+window.renderIcon = (size, maskable) => {
+  c.width = size; c.height = size; ctx.imageSmoothingEnabled = false;
+  const S = size / 512;
+  ctx.save();
+  if (!maskable) { ctx.beginPath(); ctx.roundRect(0, 0, size, size, size * .2); ctx.clip(); }
+  const g = ctx.createLinearGradient(0, 0, 0, size); g.addColorStop(0, '#3f8fff'); g.addColorStop(1, '#bfe9ff');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, size, size);
+  // 雲
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  for (const [x, y, r] of [[110, 120, 34], [150, 100, 44], [200, 122, 34], [380, 200, 26], [410, 186, 34], [446, 204, 26]]) { ctx.beginPath(); ctx.arc(x * S, y * S, r * S, 0, 7); ctx.fill(); }
+  // 丘と地面
+  ctx.fillStyle = '#57b84a'; ctx.beginPath(); ctx.moveTo(-40 * S, 420 * S); ctx.quadraticCurveTo(140 * S, 250 * S, 330 * S, 420 * S); ctx.fill();
+  ctx.fillStyle = '#3d8f38'; ctx.beginPath(); ctx.moveTo(250 * S, 420 * S); ctx.quadraticCurveTo(420 * S, 290 * S, 560 * S, 420 * S); ctx.fill();
+  ctx.fillStyle = '#b9743a'; ctx.fillRect(0, 410 * S, size, size);
+  ctx.fillStyle = '#5cbf4a'; ctx.fillRect(0, 410 * S, size, 26 * S);
+  ctx.fillStyle = '#8a5228'; ctx.fillRect(0, 436 * S, size, 6 * S);
+  // ワンダーフラワー（虹色の花）
+  const fx = 356 * S, fy = 250 * S, R = 40 * S;
+  ctx.fillStyle = '#2e7d32'; ctx.fillRect(fx - 8 * S, fy, 16 * S, 170 * S);
+  ctx.beginPath(); ctx.ellipse(fx - 34 * S, fy + 110 * S, 30 * S, 14 * S, -.5, 0, 7); ctx.fill();
+  for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 - Math.PI / 2; ctx.fillStyle = `hsl(${i * 60},90%,58%)`; ctx.beginPath(); ctx.arc(fx + Math.cos(a) * R, fy + Math.sin(a) * R, 30 * S, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(fx, fy, 26 * S, 0, 7); ctx.fill();
+  ctx.fillStyle = '#1b1b2f'; ctx.beginPath(); ctx.arc(fx - 9 * S, fy - 3 * S, 4 * S, 0, 7); ctx.arc(fx + 9 * S, fy - 3 * S, 4 * S, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#1b1b2f'; ctx.lineWidth = 3 * S; ctx.beginPath(); ctx.arc(fx, fy + 6 * S, 9 * S, .2, Math.PI - .2); ctx.stroke();
+  // 主人公（大きい形態）を 16x24 → 拡大
+  const hero = sp.hero.big.idle, k = 13 * S;
+  ctx.drawImage(hero, 120 * S, 410 * S - hero.height * k, hero.width * k, hero.height * k);
+  ctx.restore();
+  return c.toDataURL('image/png');
+};
+</script>
