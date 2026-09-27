@@ -206,7 +206,7 @@ export class Game {
     // ---- 横移動 ----
     const speedMul = wt === 'wobble' ? 1.3 : 1;
     const maxSpd = (inp.run ? 2.7 : 1.7) * speedMul;
-    const acc = p.ground ? .2 : .13;
+    const acc = p.ground ? .2 : .17; // 空中でも方向転換がききやすい
     p.crouch = p.ground && inp.downKey && p.form !== 'small';
     if (p.crouch) {
       if (p.h !== 14) { const b = p.y + p.h; p.h = 14; p.y = b - 14; }
@@ -215,17 +215,18 @@ export class Game {
       if (p.h !== FORM_SIZE[p.form][1]) { const b = p.y + p.h; p.h = FORM_SIZE[p.form][1]; p.y = b - p.h; }
       if (inp.left && !inp.right) { p.vx = Math.max(p.vx - acc, -maxSpd); p.dir = -1; }
       else if (inp.right && !inp.left) { p.vx = Math.min(p.vx + acc, maxSpd); p.dir = 1; }
-      else p.vx *= p.ground ? .78 : .96;
+      else p.vx *= p.ground ? .78 : .985;
       if (Math.abs(p.vx) > maxSpd) p.vx *= .95;
       if (Math.abs(p.vx) < .05) p.vx = 0;
     }
     p.dropThrough = inp.downKey && p.ground && !inp.jumpHit;
 
-    // ---- ジャンプ ----
-    const gravBase = wt === 'lowgrav' ? .16 : .4;
+    // ---- ジャンプ（最近のマリオ風: 素早く上がり、頂点でふわっと止まり、ゆっくり落ちる） ----
+    const gMul = wt === 'lowgrav' ? .4 : 1;
+    const G_RISE = .2 * gMul, G_CUT = .62 * gMul, G_APEX = .11 * gMul, G_FALL = .33 * gMul;
     p.jbuf = inp.jumpHit ? 6 : Math.max(0, p.jbuf - 1);
-    p.coyote = p.ground ? 6 : Math.max(0, p.coyote - 1);
-    let jumpV = (6.4 + Math.abs(p.vx) * .3) * (this.badge === 'jump' ? 1.18 : 1) * (wt === 'lowgrav' ? .72 : 1);
+    p.coyote = p.ground ? 7 : Math.max(0, p.coyote - 1);
+    let jumpV = (6.1 + Math.abs(p.vx) * .35) * (this.badge === 'jump' ? 1.18 : 1) * (wt === 'lowgrav' ? .72 : 1);
     if (p.jbuf > 0 && p.coyote > 0 && !p.crouch) {
       p.vy = -jumpV; p.ground = false; p.coyote = 0; p.jbuf = 0; this.audio.sfx('jump');
       this.burst(p.x + p.w / 2, p.y + p.h, 3, '#fff', 1, .05);
@@ -233,15 +234,15 @@ export class Game {
       p.vy = -jumpV * .95; p.vx = -p.wall * 2.6; p.dir = -p.wall; p.jbuf = 0; this.audio.sfx('jump');
       this.burst(p.x + (p.wall > 0 ? p.w : 0), p.y + p.h / 2, 5, '#fff', 1.5, .05);
     }
-    let grav = gravBase;
-    if (p.vy < 0 && inp.jump) grav *= .5;
+    let grav = p.vy < 0 ? (inp.jump ? G_RISE : G_CUT) : G_FALL;
+    if (Math.abs(p.vy) < 1.1 && !p.ground) grav = G_APEX; // 頂点付近の滞空
     p.vy += grav;
     p.glide = false;
     if (!p.ground && p.vy > 0) {
       if (this.badge === 'wall' && p.wall !== 0 && ((p.wall > 0 && inp.right) || (p.wall < 0 && inp.left))) p.vy = Math.min(p.vy, 1.2);
       else if (this.badge === 'glide' && inp.jump) { p.vy = Math.min(p.vy, .9); p.glide = true; }
     }
-    p.vy = Math.min(p.vy, wt === 'lowgrav' ? 3 : 7);
+    p.vy = Math.min(p.vy, wt === 'lowgrav' ? 2.6 : 5.4);
 
     // ---- 移動と衝突 ----
     p.prevBottom = p.y + p.h;

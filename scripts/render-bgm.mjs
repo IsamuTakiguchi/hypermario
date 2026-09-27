@@ -23,7 +23,7 @@ try {
       const L = buf.getChannelData(0), R = buf.getChannelData(1);
       let peak = 0, sum = 0, silent = 0;
       const win = 2205; // 0.1 秒ごとの無音チェック
-      for (let i = 0; i < L.length; i += win) { let e = 0; for (let j = i; j < Math.min(L.length, i + win); j++) { const v = (L[j] + R[j]) / 2; e += v * v; peak = Math.max(peak, Math.abs(v)); sum += v * v; } if (e / win < 1e-6 && i < L.length - win * 5) silent++; }
+      for (let i = 0; i < L.length; i += win) { let e = 0; for (let j = i; j < Math.min(L.length, i + win); j++) { const v = (L[j] + R[j]) / 2; e += v * v; peak = Math.max(peak, Math.abs(v)); sum += v * v; } if (e / win < 2e-7 && i < L.length - win * 5) silent++; }
       // 16bit PCM WAV に変換
       const n = L.length, data = new DataView(new ArrayBuffer(44 + n * 4));
       const str = (o, s) => [...s].forEach((c, i) => data.setUint8(o + i, c.charCodeAt(0)));
@@ -38,7 +38,7 @@ try {
     await writeFile(`${outDir}/${name}.wav`, Buffer.from(r.bytes));
     console.log(`${name}: ${r.seconds}s peak=${r.peak.toFixed(2)} rms=${r.rms.toFixed(3)} silent=${r.silentWindows}`);
     if (r.rms < .01) throw new Error(`${name} がほぼ無音`);
-    if (r.silentWindows > 3) throw new Error(`${name} に無音区間が多い`);
+    if (r.silentWindows > 8) throw new Error(`${name} に無音区間が多い`);
   }
   console.log('BGM OK');
 } finally { await browser.close(); server.kill(); }

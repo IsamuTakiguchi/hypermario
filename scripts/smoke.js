@@ -27,6 +27,17 @@ try {
   await page.keyboard.press('KeyZ'); await page.waitForTimeout(150);
   const s2 = await state();
   if (!(s2.y < s1.y)) throw new Error('ジャンプしない');
+  await page.waitForTimeout(900);
+  // ジャンプ長押し: 最高到達点の高さと、頂点付近（|vy|<1）の滞空フレーム数を計測
+  const jumpStats = await page.evaluate(() => new Promise(res => {
+    const g = window.__hyperwonder.game, y0 = g.p.y; let top = y0, hang = 0, frames = 0, landed = false;
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyZ' }));
+    const tick = () => { frames++; top = Math.min(top, g.p.y); if (frames > 2 && Math.abs(g.p.vy) < 1 && !g.p.ground) hang++; if (frames > 8 && g.p.ground) landed = true; if (landed || frames > 240) { window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyZ' })); res({ height: y0 - top, hang, frames }); } else requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  }));
+  if (!(jumpStats.height > 80 && jumpStats.height < 120)) throw new Error(`ジャンプの高さが想定外 ${JSON.stringify(jumpStats)}`);
+  if (!(jumpStats.hang >= 6)) throw new Error(`頂点の滞空が短い ${JSON.stringify(jumpStats)}`);
+  console.log('jump', JSON.stringify(jumpStats));
   await page.screenshot({ path: 'scripts/shot-play.png' });
 
   // ワンダーフラワーの手前にテレポートして触れる → シードまで歩く
